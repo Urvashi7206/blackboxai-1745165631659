@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Responsive AI tool for image compression with client-side and server-side options" />
+  <meta name="keywords" content="image compression, AI image optimization, client-side compression, server-side compression, TinyPNG, Cloudinary" />
+  <meta name="author" content="Image Compression Tool" />
+  <title>AI Image Compression Tool</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/browser-image-compression@1.0.15/dist/browser-image-compression.js"></script>
+</head>
+<body class="bg-gray-50 font-sans text-gray-800 min-h-screen flex flex-col">
+  <header class="bg-white shadow p-4">
+    <h1 class="text-2xl font-semibold text-center">AI Image Compression Tool</h1>
+  </header>
+  <main class="flex-grow container mx-auto p-4 max-w-4xl">
+    <section class="bg-white rounded-lg shadow p-6">
+      <form id="compressionForm" class="space-y-6">
+        <div>
+          <label for="imageInput" class="block text-sm font-medium mb-1">Upload Image</label>
+          <input type="file" id="imageInput" accept="image/*" class="block w-full text-sm text-gray-600" required />
+        </div>
+        <div>
+          <label for="compressionLevel" class="block text-sm font-medium mb-1">Compression Level (Quality)</label>
+          <input type="range" id="compressionLevel" min="10" max="100" value="75" step="5" class="w-full" />
+          <div class="text-sm text-gray-600 mt-1" id="compressionValue">75</div>
+        </div>
+        <div>
+          <label for="compressionMethod" class="block text-sm font-medium mb-1">Compression Method</label>
+          <select id="compressionMethod" class="w-full border border-gray-300 rounded p-2">
+            <option value="client">Client-side Compression</option>
+            <option value="tinypng">TinyPNG (Server-side API)</option>
+          </select>
+        </div>
+        <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition">Compress Image</button>
+      </form>
+      <div id="resultSection" class="mt-6 hidden">
+        <h2 class="text-lg font-semibold mb-2">Compressed Image Preview</h2>
+        <img id="compressedImage" alt="Compressed Image" class="max-w-full rounded shadow" />
+        <a id="downloadLink" href="#" download="compressed-image.png" class="inline-block mt-4 bg-green-600 text-white py-2 px-4 rounded hover:bg-green-700 transition">
+          <i class="fas fa-download mr-2"></i>Download Compressed Image
+        </a>
+      </div>
+      <div id="errorMessage" class="mt-4 text-red-600 font-semibold hidden"></div>
+    </section>
+  </main>
+  <footer class="bg-white shadow p-4 text-center text-sm text-gray-500">
+    &copy; 2024 AI Image Compression Tool
+  </footer>
+
+  <script>
+    const compressionForm = document.getElementById('compressionForm');
+    const imageInput = document.getElementById('imageInput');
+    const compressionLevel = document.getElementById('compressionLevel');
+    const compressionValue = document.getElementById('compressionValue');
+    const compressionMethod = document.getElementById('compressionMethod');
+    const resultSection = document.getElementById('resultSection');
+    const compressedImage = document.getElementById('compressedImage');
+    const downloadLink = document.getElementById('downloadLink');
+    const errorMessage = document.getElementById('errorMessage');
+
+    compressionLevel.addEventListener('input', () => {
+      compressionValue.textContent = compressionLevel.value;
+    });
+
+    compressionForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errorMessage.classList.add('hidden');
+      resultSection.classList.add('hidden');
+
+      const file = imageInput.files[0];
+      if (!file) {
+        errorMessage.textContent = 'Please upload an image file.';
+        errorMessage.classList.remove('hidden');
+        return;
+      }
+
+      const quality = parseInt(compressionLevel.value, 10);
+
+      if (compressionMethod.value === 'client') {
+        // Client-side compression using browser-image-compression
+        try {
+          const options = {
+            maxSizeMB: 1,
+            maxWidthOrHeight: 1920,
+            useWebWorker: true,
+            initialQuality: quality / 100,
+          };
+          const compressedFile = await imageCompression(file, options);
+          const compressedUrl = URL.createObjectURL(compressedFile);
+          compressedImage.src = compressedUrl;
+          downloadLink.href = compressedUrl;
+          downloadLink.download = 'compressed-image.' + compressedFile.type.split('/')[1];
+          resultSection.classList.remove('hidden');
+        } catch (err) {
+          errorMessage.textContent = 'Client-side compression failed: ' + err.message;
+          errorMessage.classList.remove('hidden');
+        }
+      } else if (compressionMethod.value === 'tinypng') {
+        // Server-side compression using TinyPNG API proxy
+        try {
+          const formData = new FormData();
+          formData.append('image', file);
+
+          const response = await fetch('http://localhost:3000/api/compress/tinypng', {
+            method: 'POST',
+            body: formData,
+          });
+
+          if (!response.ok) {
+            throw new Error('Server compression failed with status ' + response.status);
+          }
+
+          const blob = await response.blob();
+          const compressedUrl = URL.createObjectURL(blob);
+          compressedImage.src = compressedUrl;
+          downloadLink.href = compressedUrl;
+          downloadLink.download = 'compressed-image.png';
+          resultSection.classList.remove('hidden');
+        } catch (err) {
+          errorMessage.textContent = 'Server-side compression failed: ' + err.message;
+          errorMessage.classList.remove('hidden');
+        }
+      }
+    });
+  </script>
+</body>
+</html>
